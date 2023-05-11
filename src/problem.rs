@@ -30,7 +30,7 @@ impl ProblemLoader {
   }
 
   pub fn load_problem(&self, problem_num: usize) -> Problem {
-    let type_path = if self.uniform { "Falkenauer U" } else { "Falkenauer T" };
+    let type_path = if self.uniform { "Falkenauer U" } else { "Falkenauer_T" };
     let problem_prefix = if self.uniform { "Falkenauer_u" } else { "Falkenauer_t" };
 
     let path = format!("{}/{}/{}{}_{:02}.txt", self.root, type_path, problem_prefix, self.problem_size, problem_num);

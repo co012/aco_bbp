@@ -6,7 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rand = "0.8.5"
+rand = {version = "0.8.5", features = ["std_rng"]}
 nalgebra = "0.32.2"
 itertools = "0.10.2"
-ecrs = { path = "../ecrs" }
+ecrs = { path = "../ecrs", features = ["aco"]}
+time-graph = {version = "0.3.0", features = ["table"] }
+rayon = "1.7.0"

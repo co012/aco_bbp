@@ -8,22 +8,24 @@ use ecrs::aco::Solution;
 pub struct CsvProbe {
   i2size: Vec<usize>,
   fitness: Vec<usize>,
-  label: &'static str,
+  label: String,
+  pub file_post: String,
   bin_cap: usize
 }
 
 impl CsvProbe {
 
-  pub fn new(i2size: Vec<usize>, label:&'static str, bin_cap: usize) -> Self {
+  pub fn new(i2size: Vec<usize>, label:String, bin_cap: usize) -> Self {
     Self {
       i2size,
       label,
+      file_post: String::from(""),
       bin_cap,
       fitness: vec![]
     }
   }
 
-  pub fn clone_exchange(&self, label: &'static str) -> Self {
+  pub fn clone_exchange(&self, label: String) -> Self {
     let mut c = self.clone();
     c.label = label;
     c
@@ -33,13 +35,14 @@ impl CsvProbe {
     let mut file = OpenOptions::new()
       .append(true)
       .create(true)
-      .open("bpp_results.csv")
+      .open(format!("results/bpp_results_{}.csv", self.file_post))
       .expect("Could not open file");
 
     for (i, f) in self.fitness.iter().enumerate() {
       writeln!(file, "{},{},{}", i, f, self.label).expect("Error while writing to file");
     }
-    file.flush().expect("Could not flush")
+    file.flush().expect("Could not flush");
+    println!("Completed {}", self.label)
   }
 }
 
@@ -59,7 +62,6 @@ impl<P: Pheromone> Probe<P> for CsvProbe {
       bins_content.push(curr_content);
     }
 
-    println!("{} {}", bins_content.len(), best.fitness);
     self.fitness.push(bins_content.len());
   }
 

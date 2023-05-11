@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 use ecrs::aco::colony::Colony;
 use ecrs::aco::pheromone::Pheromone;
 use itertools::Itertools;
+use rayon::prelude::*;
 use crate::colony::ant::MyAnt;
 
 
@@ -16,6 +17,9 @@ pub struct BinSharedState {
   pub solution_size: usize,
   pub bin_cap: usize,
 }
+
+unsafe impl Send for BinSharedState {}
+unsafe impl Sync for BinSharedState {}
 
 #[derive(Clone)]
 pub struct BinColony<P: Pheromone, A: MyAnt<P>> {
@@ -30,10 +34,10 @@ impl<P: Pheromone, A: MyAnt<P>> BinColony<P, A> {
   }
 }
 
-impl<P: Pheromone,A: MyAnt<P>> Colony<P> for BinColony<P, A> {
+impl<P: Pheromone + Send + Sync,A: MyAnt<P> + Sync + Send> Colony<P> for BinColony<P, A> {
   fn build_solutions(&mut self, pheromone: &mut P) -> Vec<Vec<usize>> {
     self.ants.iter_mut()
       .map(|x| x.build_solution(pheromone, &self.shared_state))
-      .collect_vec()
+      .collect()
   }
 }
