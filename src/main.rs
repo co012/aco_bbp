@@ -20,9 +20,10 @@ mod colony;
 mod problem;
 
 const ANTS: usize = 50;
-const ITERS: usize = 1000;
+const ITERS: usize = 100;
 const PHER_LEVELS: usize = 5;
 
+#[allow(dead_code)]
 fn check_parms() {
   for p_num in 0..20 {
     let problem = ProblemLoader::new()
@@ -123,11 +124,11 @@ fn main() {
 
 
 
-    for alpha in [2.5, 3.0] {
-      for beta in [2.5, 10.0] {
+    for alpha in [1.5, 2.0] {
+      for beta in 7..21 {
         let ss = BinSharedState {
           alpha,
-          beta,
+          beta: beta as f64 / 2.0,
           i2size: index_to_size.clone(),
           solution_size: problem.items.len(),
           bin_cap: problem.bin_cap,

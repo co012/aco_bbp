@@ -3,8 +3,6 @@ pub mod ant;
 use std::marker::PhantomData;
 use ecrs::aco::colony::Colony;
 use ecrs::aco::pheromone::Pheromone;
-use itertools::Itertools;
-use rayon::prelude::*;
 use crate::colony::ant::MyAnt;
 
 

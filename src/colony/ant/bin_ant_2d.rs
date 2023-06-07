@@ -88,21 +88,6 @@ impl BinAnt2D {
   }
 
 
-  // choose for every item
-  fn perceived_pheromone(&mut self, pheromone: &Vec<FMatrix>, possible_destinations: &[usize]) -> Vec<f64> {
-    if self.inside_bin.is_empty() {
-      return vec![1.0; possible_destinations.len()]
-    }
-    let mut pher = vec![];
-    for i in possible_destinations.iter().cloned() {
-      let pheromone_level = exp_less(&mut self.rng, pheromone.len());
-      let mut p: f64 = self.inside_bin.iter().cloned().map(|j| pheromone[pheromone_level][(j, i)]).sum();
-      p /= self.inside_bin.len() as f64;
-      pher.push(p)
-    }
-    pher
-  }
-
   fn choose_next(&mut self, fitting_items: Vec<usize>, goodness: Vec<f64>) -> Option<usize> {
     let sum = goodness.iter().sum();
     let mut random: f64 = self.rng.gen_range(0.0..=sum);

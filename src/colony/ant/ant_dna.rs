@@ -1,4 +1,3 @@
-use std::ops::Mul;
 use crate::colony::ant::MyAnt;
 use crate::colony::BinSharedState;
 use ecrs::aco::FMatrix;
