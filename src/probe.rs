@@ -1,27 +1,38 @@
 use std::fs::OpenOptions;
 use std::io::Write;
+use ecrs::aco::fitness::Fitness;
 use ecrs::aco::pheromone::Pheromone;
 use ecrs::aco::probe::Probe;
 use ecrs::aco::Solution;
+use crate::fitness::BinFitness;
 
 #[derive(Clone)]
 pub struct CsvProbe {
   i2size: Vec<usize>,
-  fitness: Vec<usize>,
+  fitness: Vec<f64>,
+  bins: Vec<usize>,
   label: String,
   pub file_post: String,
-  bin_cap: usize
+  bin_cap: usize,
+  fit_op: BinFitness
 }
 
 impl CsvProbe {
 
   pub fn new(i2size: Vec<usize>, label:String, bin_cap: usize) -> Self {
+    let fit_op = BinFitness {
+      stress_factor: 2.0,
+      i2size: i2size.clone(),
+      bin_cap,
+    };
     Self {
       i2size,
       label,
+      bins: vec![],
       file_post: String::from(""),
       bin_cap,
-      fitness: vec![]
+      fitness: vec![],
+      fit_op
     }
   }
 
@@ -38,8 +49,8 @@ impl CsvProbe {
       .open(format!("results/bpp_results_{}.csv", self.file_post))
       .expect("Could not open file");
 
-    for (i, f) in self.fitness.iter().enumerate() {
-      writeln!(file, "{},{},{}", i, f, self.label).expect("Error while writing to file");
+    for ((i, f), b) in self.fitness.iter().enumerate().zip(self.bins.iter()) {
+      writeln!(file, "{},{},{},{}", i, f, b, self.label).expect("Error while writing to file");
     }
     file.flush().expect("Could not flush");
     println!("Completed {}", self.label)
@@ -62,7 +73,9 @@ impl<P: Pheromone> Probe<P> for CsvProbe {
       bins_content.push(curr_content);
     }
 
-    self.fitness.push(bins_content.len());
+    let f = self.fit_op.apply(&best.path);
+    self.fitness.push(f);
+    self.bins.push(bins_content.len());
   }
 
   fn on_end(&mut self) {

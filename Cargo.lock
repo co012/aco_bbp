@@ -138,12 +138,13 @@ version = "0.1.0-beta.3"
 dependencies = [
  "csv",
  "itertools",
+ "len-trait",
  "log",
  "nalgebra",
  "num",
+ "num-traits",
  "push-trait",
  "rand",
- "rayon",
  "serde",
  "serde_json",
 ]
