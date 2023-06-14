@@ -13,3 +13,4 @@ use crate::colony::BinSharedState;
 pub trait MyAnt<P: Pheromone> {
   fn build_solution(&mut self, pheromone: &P, ss: &BinSharedState) -> Vec<usize>;
 }
+

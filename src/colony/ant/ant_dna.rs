@@ -41,7 +41,7 @@ impl DnaAnt {
     fit_items
   }
 
-  fn perceived_pheromone(&self, pheromone: &Vec<FMatrix>, possible_destinations: &[usize]) -> Vec<f64> {
+  fn perceived_pheromone(&self, pheromone: &[FMatrix], possible_destinations: &[usize]) -> Vec<f64> {
     if self.inside_bin.is_empty() {
       return vec![1.0; possible_destinations.len()]
     }
