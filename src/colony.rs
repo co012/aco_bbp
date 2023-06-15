@@ -1,10 +1,11 @@
-pub mod ant;
-
 use std::marker::PhantomData;
+
 use ecrs::aco::colony::Colony;
 use ecrs::aco::pheromone::Pheromone;
+
 use crate::colony::ant::MyAnt;
 
+pub mod ant;
 
 #[derive(Clone)]
 pub struct BinSharedState {
@@ -14,6 +15,7 @@ pub struct BinSharedState {
     pub i2count: Vec<usize>,
     pub solution_size: usize,
     pub bin_cap: usize,
+    pub heuristic: Vec<f64>
 }
 
 unsafe impl Send for BinSharedState {}
@@ -34,6 +36,7 @@ impl<P: Pheromone, A: MyAnt<P>> BinColony<P, A> {
 }
 
 impl<P: Pheromone + Send + Sync, A: MyAnt<P> + Sync + Send> Colony<P> for BinColony<P, A> {
+  #[time_graph::instrument]
     fn build_solutions(&mut self, pheromone: &mut P) -> Vec<Vec<usize>> {
         self.ants.iter_mut()
             .map(|x| x.build_solution(pheromone, &self.shared_state))

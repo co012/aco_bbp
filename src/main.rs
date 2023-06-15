@@ -4,7 +4,7 @@ use ecrs::aco::colony::Colony;
 use ecrs::aco::FMatrix;
 use ecrs::aco::pheromone::{AntColonySystemPU, AntSystemPU, PartFromEvalPU, Pheromone, PheromoneUpdate};
 use ecrs::aco::pheromone::best_policy::IterationBest;
-use ecrs::aco::termination_condition::{IterationCond};
+use ecrs::aco::termination_condition::IterationCond;
 use itertools::Itertools;
 use nalgebra::OMatrix;
 use rand::{Rng, thread_rng};
@@ -26,78 +26,6 @@ const ANTS: usize = 50;
 const ITERS: usize = 70;
 const PHER_LEVELS: usize = 5;
 
-#[allow(dead_code)]
-fn check_parms() {
-    for p_num in 0..20 {
-        let problem = ProblemLoader::new()
-            .pick_uniform(true)
-            .problem_size(500)
-            .load_problem(p_num);
-
-
-        let (size_count, size_to_index, index_to_size) = util::process_items(&problem.items);
-        let mut i2count = vec![0; size_count];
-        for i in problem.items.clone() {
-            i2count[size_to_index[&i]] += 1;
-        }
-        (0..20).into_par_iter().for_each(|i| {
-            let fitness = BinFitness {
-                stress_factor: 2.0,
-                i2size: index_to_size.clone(),
-                bin_cap: problem.bin_cap,
-            };
-            let mut probe = CsvProbe::new(index_to_size.clone(), String::new(), problem.bin_cap);
-            probe.file_post = format!("{}", i);
-
-
-            let ss = BinSharedState {
-                alpha: 2.5,
-                beta: 2.5,
-                i2size: index_to_size.clone(),
-                solution_size: problem.items.len(),
-                bin_cap: problem.bin_cap,
-                i2count: i2count.clone(),
-            };
-
-            // alpha = 2.5 beta = 2.5
-            run_as(&problem, ss.clone(), size_count, &fitness, probe.clone_exchange(make_label("as", &ss, p_num)));
-            run_as_2d(&problem, size_count, fitness.clone(), probe.clone_exchange(make_label("as2d_ei", &ss, p_num)), ss.clone(), PerceivedPherStrat::EveryItem);
-            run_acs_2d(&problem, size_count, fitness.clone(), probe.clone_exchange(make_label("acs2d_ei", &ss, p_num)), ss.clone(), PerceivedPherStrat::EveryItem);
-            run_acs_2d(&problem, size_count, fitness.clone(), probe.clone_exchange(make_label("acs2d_io", &ss, p_num)), ss.clone(), PerceivedPherStrat::IterOnce);
-
-
-            let ss = BinSharedState {
-                alpha: 2.0,
-                beta: 2.5,
-                i2size: index_to_size.clone(),
-                solution_size: problem.items.len(),
-                bin_cap: problem.bin_cap,
-                i2count: i2count.clone(),
-            };
-            // alpha = 2.0 beta = 2.5
-            run_dna(&problem, ss.clone(), size_count, &fitness, probe.clone_exchange(make_label("dna", &ss, p_num)));
-            run_dna_rand(&problem, ss.clone(), size_count, &fitness, probe.clone_exchange(make_label("dna_rand", &ss, p_num)));
-            run_as(&problem, ss.clone(), size_count, &fitness, probe.clone_exchange(make_label("as", &ss, p_num)));
-            run_acs_pu(&problem, ss.clone(), size_count, &fitness, probe.clone_exchange(make_label("acs", &ss, p_num)));
-            run_acs_2d(&problem, size_count, fitness.clone(), probe.clone_exchange(make_label("acs2d_ei", &ss, p_num)), ss.clone(), PerceivedPherStrat::EveryItem);
-            run_as_2d(&problem, size_count, fitness.clone(), probe.clone_exchange(make_label("as2d_io", &ss, p_num)), ss.clone(), PerceivedPherStrat::IterOnce);
-            run_as_2d(&problem, size_count, fitness.clone(), probe.clone_exchange(make_label("as2d_ei", &ss, p_num)), ss.clone(), PerceivedPherStrat::EveryItem);
-
-
-            let ss = BinSharedState {
-                alpha: 2.0,
-                beta: 2.0,
-                i2size: index_to_size.clone(),
-                solution_size: problem.items.len(),
-                bin_cap: problem.bin_cap,
-                i2count: i2count.clone(),
-            };
-            // alpha = 2.0 beta = 2.0
-            run_acs_2d(&problem, size_count, fitness.clone(), probe.clone_exchange(make_label("acs2d_io", &ss, p_num)), ss.clone(), PerceivedPherStrat::IterOnce);
-            run_as_2d(&problem, size_count, fitness.clone(), probe.clone_exchange(make_label("as2d_io", &ss, p_num)), ss.clone(), PerceivedPherStrat::IterOnce);
-        });
-    }
-}
 
 
 fn main() {
@@ -126,8 +54,11 @@ fn main() {
 }
 
 fn run_alphabeta(problem: &Problem, size_count: usize, index_to_size: &Vec<usize>, i2count: &Vec<usize>, fitness: &BinFitness, probe: &mut CsvProbe) {
-    for alpha in [1.5] {
-        for beta in [4.0] {
+    (0..6).into_par_iter().for_each(|i| {
+        let mut probe = probe.clone();
+        probe.file_post = format!("{}", i);
+    for alpha in [1.5, 2.0] {
+        for beta in [1.0,1.5,2.0,2.5,3.0] {
             let ss = BinSharedState {
                 alpha,
                 beta,
@@ -135,6 +66,7 @@ fn run_alphabeta(problem: &Problem, size_count: usize, index_to_size: &Vec<usize
                 solution_size: problem.items.len(),
                 bin_cap: problem.bin_cap,
                 i2count: i2count.clone(),
+                heuristic: index_to_size.iter().map(|x| (*x as f64).powf(beta)).collect_vec()
             };
             run_as(&problem, ss.clone(), size_count, &fitness, probe.clone_exchange(make_label("as", &ss, 0)));
             run_dna(&problem, ss.clone(), size_count, &fitness, probe.clone_exchange(make_label("dna", &ss, 0)));
@@ -147,6 +79,7 @@ fn run_alphabeta(problem: &Problem, size_count: usize, index_to_size: &Vec<usize
             run_dna_bias(problem, ss.clone(), size_count, &fitness, probe.clone_exchange(make_label("dna_bias", &ss, 0)));
         }
     }
+    })
 }
 
 fn make_label(l: &'static str, ss: &BinSharedState, p_num: usize) -> String {

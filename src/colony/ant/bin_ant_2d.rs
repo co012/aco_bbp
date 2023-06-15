@@ -1,9 +1,10 @@
-use crate::colony::ant::MyAnt;
-use crate::colony::BinSharedState;
 use ecrs::aco::FMatrix;
 use itertools::Itertools;
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+
+use crate::colony::ant::MyAnt;
+use crate::colony::BinSharedState;
 
 #[derive(Clone)]
 pub enum PerceivedPherStrat {
@@ -139,9 +140,9 @@ impl MyAnt<Vec<FMatrix>> for BinAnt2D {
             let pher = self.pp.clone().perceived_pher(self, pheromone, &fitting_items);
 
             let goodness = fitting_items.iter()
-                .map(|x| ss.i2size[*x] as f64 / ss.bin_cap as f64)
+                .map(|x| ss.heuristic[*x])
                 .zip(pher.iter())
-                .map(|(h, p)| p.powf(ss.alpha) * h.powf(ss.beta))
+                .map(|(h, p)| p.powf(ss.alpha) * h)
                 .collect_vec();
 
             let next = self.choose_next(fitting_items, goodness).expect("Ant is stuck");

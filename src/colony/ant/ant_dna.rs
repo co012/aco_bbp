@@ -1,9 +1,10 @@
-use crate::colony::ant::MyAnt;
-use crate::colony::BinSharedState;
 use ecrs::aco::FMatrix;
 use itertools::Itertools;
-use rand::prelude::{StdRng};
 use rand::{Rng, SeedableRng};
+use rand::prelude::StdRng;
+
+use crate::colony::ant::MyAnt;
+use crate::colony::BinSharedState;
 
 #[derive(Clone)]
 pub struct DnaAnt {

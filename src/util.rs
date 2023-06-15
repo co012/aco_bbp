@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::marker::PhantomData;
+
 use ecrs::aco::pheromone::{Pheromone, PheromoneUpdate};
 use ecrs::aco::Solution;
 

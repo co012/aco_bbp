@@ -1,9 +1,11 @@
 use std::fs::OpenOptions;
 use std::io::Write;
+
 use ecrs::aco::fitness::Fitness;
 use ecrs::aco::pheromone::Pheromone;
 use ecrs::aco::probe::Probe;
 use ecrs::aco::Solution;
+
 use crate::fitness::BinFitness;
 
 #[derive(Clone)]

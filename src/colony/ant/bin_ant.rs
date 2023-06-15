@@ -1,9 +1,10 @@
-use crate::colony::ant::MyAnt;
-use crate::colony::BinSharedState;
 use ecrs::aco::FMatrix;
 use itertools::Itertools;
-use rand::prelude::{StdRng};
 use rand::{Rng, SeedableRng};
+use rand::prelude::StdRng;
+
+use crate::colony::ant::MyAnt;
+use crate::colony::BinSharedState;
 
 #[derive(Clone)]
 pub struct BinAnt {
@@ -19,6 +20,7 @@ unsafe impl Sync for BinAnt {}
 
 
 impl BinAnt {
+    #[time_graph::instrument]
     fn find_destinations(&self, ss: &BinSharedState) -> Vec<usize> {
         let place_taken: usize = self.inside_bin.iter()
             .cloned()
@@ -40,7 +42,7 @@ impl BinAnt {
 
         fit_items
     }
-
+    #[time_graph::instrument]
     fn perceived_pheromone(&self, pheromone: &FMatrix, possible_destinations: &[usize]) -> Vec<f64> {
         if self.inside_bin.is_empty() {
             return vec![1.0; possible_destinations.len()];
@@ -53,7 +55,7 @@ impl BinAnt {
         }
         pher
     }
-
+    #[time_graph::instrument]
     fn choose_next(&mut self, fitting_items: Vec<usize>, goodness: Vec<f64>) -> Option<usize> {
         let sum = goodness.iter().sum();
         let mut random: f64 = self.rng.gen_range(0.0..=sum);
@@ -68,16 +70,18 @@ impl BinAnt {
     }
 
     /// Clears iteration specific data like visited vertices or path.
+    #[time_graph::instrument]
     fn clear(&mut self, ss: &BinSharedState) {
-        self.i2count = ss.i2count.clone();
+        self.i2count.clone_from(&ss.i2count);
         self.path.clear();
         self.inside_bin.clear();
     }
     /// Selects an vertex to start from
+    #[time_graph::instrument]
     fn chose_staring_place(&mut self) -> usize {
         self.rng.gen_range(0..self.i2count.len())
     }
-
+    #[time_graph::instrument]
     fn go_to(&mut self, v: usize) {
         self.i2count[v] -= 1;
         self.path.push(v);
@@ -106,9 +110,9 @@ impl MyAnt<FMatrix> for BinAnt {
             let pher = self.perceived_pheromone(pheromone, &fitting_items);
 
             let goodness = fitting_items.iter()
-                .map(|x| ss.i2size[*x] as f64 / ss.bin_cap as f64)
+                .map(|x| ss.heuristic[*x])
                 .zip(pher.iter())
-                .map(|(h, p)| p.powf(ss.alpha) * h.powf(ss.beta))
+                .map(|(h, p)| p.powf(ss.alpha) * h)
                 .collect_vec();
 
             let next = self.choose_next(fitting_items, goodness).expect("Ant is stuck");
