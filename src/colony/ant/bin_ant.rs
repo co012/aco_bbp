@@ -21,7 +21,7 @@ unsafe impl Sync for BinAnt {}
 
 impl BinAnt {
     #[time_graph::instrument]
-    fn find_destinations(&self, ss: &BinSharedState) -> Vec<usize> {
+    fn try_finding_fitting_items(&self, ss: &BinSharedState) -> Vec<usize> {
         let place_taken: usize = self.inside_bin.iter()
             .cloned()
             .map(|x| ss.i2size[x])
@@ -30,6 +30,7 @@ impl BinAnt {
         let place_left = ss.bin_cap - place_taken;
 
         let mut fit_items = Vec::<usize>::new();
+
         for i in (0..self.i2count.len()).rev() {
             if ss.i2size[i] > place_left {
                 break;
@@ -47,7 +48,7 @@ impl BinAnt {
         if self.inside_bin.is_empty() {
             return vec![1.0; possible_destinations.len()];
         }
-        let mut pher = vec![];
+        let mut pher = Vec::<f64>::with_capacity(possible_destinations.len());
         for i in possible_destinations.iter().cloned() {
             let mut p: f64 = self.inside_bin.iter().cloned().map(|j| pheromone[(j, i)]).sum();
             p /= self.inside_bin.len() as f64;
@@ -76,8 +77,7 @@ impl BinAnt {
         self.path.clear();
         self.inside_bin.clear();
     }
-    /// Selects an vertex to start from
-    #[time_graph::instrument]
+
     fn chose_staring_place(&mut self) -> usize {
         self.rng.gen_range(0..self.i2count.len())
     }
@@ -91,6 +91,15 @@ impl BinAnt {
     pub fn new() -> Self {
         Self { i2count: vec![], path: vec![], rng: StdRng::from_entropy(), inside_bin: vec![] }
     }
+
+    fn find_fitting_items(&mut self, ss: &BinSharedState) -> Vec<usize> {
+        let fitting_items = self.try_finding_fitting_items(ss);
+        if fitting_items.is_empty() {
+            self.inside_bin.clear();
+            return self.try_finding_fitting_items(ss)
+        }
+        fitting_items
+    }
 }
 
 impl MyAnt<FMatrix> for BinAnt {
@@ -101,11 +110,7 @@ impl MyAnt<FMatrix> for BinAnt {
         self.go_to(start);
 
         for _ in 1..ss.solution_size {
-            let tmp = self.find_destinations(ss);
-            let fitting_items = if tmp.is_empty() {
-                self.inside_bin.clear();
-                self.find_destinations(ss)
-            } else { tmp };
+            let fitting_items = self.find_fitting_items(ss);
 
             let pher = self.perceived_pheromone(pheromone, &fitting_items);
 
@@ -116,7 +121,6 @@ impl MyAnt<FMatrix> for BinAnt {
                 .collect_vec();
 
             let next = self.choose_next(fitting_items, goodness).expect("Ant is stuck");
-
 
             self.go_to(next);
         }

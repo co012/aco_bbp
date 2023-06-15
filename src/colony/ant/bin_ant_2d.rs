@@ -161,6 +161,5 @@ fn exp_less(rng: &mut StdRng, end: usize) -> usize {
             return end - i;
         }
     }
-
     0
 }

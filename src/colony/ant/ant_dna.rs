@@ -113,9 +113,9 @@ impl MyAnt<Vec<FMatrix>> for DnaAnt {
             let pher = self.perceived_pheromone(pheromone, &fitting_items);
 
             let goodness = fitting_items.iter()
-                .map(|x| ss.i2size[*x] as f64 / ss.bin_cap as f64)
+                .map(|x| ss.heuristic[*x])
                 .zip(pher.iter())
-                .map(|(h, p)| p.powf(ss.alpha) * h.powf(ss.beta))
+                .map(|(h, p)| p.powf(ss.alpha) * h)
                 .collect_vec();
 
             let next = self.choose_next(fitting_items, goodness).expect("Ant is stuck");

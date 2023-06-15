@@ -1,12 +1,10 @@
 use ecrs::aco;
-use ecrs::aco::ant::Ant;
 use ecrs::aco::colony::Colony;
 use ecrs::aco::FMatrix;
 use ecrs::aco::pheromone::{AntColonySystemPU, AntSystemPU, PartFromEvalPU, Pheromone, PheromoneUpdate};
 use ecrs::aco::pheromone::best_policy::IterationBest;
 use ecrs::aco::termination_condition::IterationCond;
 use itertools::Itertools;
-use nalgebra::OMatrix;
 use rand::{Rng, thread_rng};
 use rayon::prelude::*;
 
@@ -23,17 +21,17 @@ mod colony;
 mod problem;
 
 const ANTS: usize = 50;
-const ITERS: usize = 70;
+const ITERS: usize = 100;
 const PHER_LEVELS: usize = 5;
 
 
 
 fn main() {
-    time_graph::enable_data_collection(true);
+    // time_graph::enable_data_collection(true);
     let problem = ProblemLoader::from(ProblemSet::Falkenauer)
         .pick_uniform(false)
-        .problem_size(249)
-        .load_problem(5);
+        .problem_size(120)
+        .load_problem(17);
 
     let (size_count, size_to_index, index_to_size) = util::process_items(&problem.items);
     let mut i2count = vec![0; size_count];
@@ -49,15 +47,15 @@ fn main() {
 
 
     run_alphabeta(&problem, size_count, &index_to_size, &i2count, &fitness, &mut probe);
-    let graph = time_graph::get_full_graph();
-    println!("{}", graph.as_table());
+    // let graph = time_graph::get_full_graph();
+    // println!("{}", graph.as_table());
 }
 
 fn run_alphabeta(problem: &Problem, size_count: usize, index_to_size: &Vec<usize>, i2count: &Vec<usize>, fitness: &BinFitness, probe: &mut CsvProbe) {
-    (0..6).into_par_iter().for_each(|i| {
+    (0..10).into_par_iter().for_each(|i| {
         let mut probe = probe.clone();
         probe.file_post = format!("{}", i);
-    for alpha in [1.5, 2.0] {
+    for alpha in [1.0, 1.5, 2.0, 2.5,3.0] {
         for beta in [1.0,1.5,2.0,2.5,3.0] {
             let ss = BinSharedState {
                 alpha,

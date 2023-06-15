@@ -4,7 +4,7 @@ use itertools::Itertools;
 use aco_bbp::{BinAnt, BinSharedState, MyAnt};
 
 fn bench_bin_ant(mut ant: BinAnt, ss: &BinSharedState, pher: &mut FMatrix) {
-    for _ in 0..100 {
+    for _ in 0..10 {
         ant.build_solution(pher ,ss);
     }
 
