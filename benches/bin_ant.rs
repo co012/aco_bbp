@@ -1,21 +1,44 @@
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use ecrs::aco::FMatrix;
 use itertools::Itertools;
-use aco_bbp::{BinAnt, BinAnt2D, BinSharedState, MyAnt, PerceivedPherStrat};
+use rand::{Error, Rng, RngCore};
+use aco_bbp::{BinAnt, BinSharedState, MyAnt, PP};
 
-fn bench_bin_ant(mut ant: BinAnt, ss: &BinSharedState, pher: &mut FMatrix) {
-    for _ in 0..30 {
+fn bench_bin_ant<R: Rng + Clone>(mut ant: BinAnt<R>, ss: &BinSharedState, pher: &mut FMatrix) {
+    for _ in 0..100 {
         ant.build_solution(pher ,ss);
     }
 
 }
 
-fn bench_bin_ant2d(mut ant: BinAnt2D, ss: &BinSharedState, pher: &mut Vec<FMatrix>) {
-    for _ in 0..30 {
+fn bench_bin_ant2d<R: Rng + Clone>(mut ant: BinAnt<R>, ss: &BinSharedState, pher: &mut Vec<FMatrix>) {
+    for _ in 0..100 {
         ant.build_solution(pher ,ss);
     }
 
+}
+
+#[derive(Clone)]
+struct FakeRng;
+
+
+impl RngCore for FakeRng {
+    fn next_u32(&mut self) -> u32 {
+        1
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        1
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        dest.fill(1)
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
+        Ok(dest.fill(1))
+    }
 }
 
 
@@ -25,8 +48,11 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("sample-size-example");
     // Configure Criterion.rs to detect smaller differences and increase sample size to improve
     // precision and counteract the resulting noise.
-    group.significance_level(0.1).sample_size(300).measurement_time(Duration::from_secs(30));
-    let ant  = BinAnt::new();
+    group.significance_level(0.1)
+        .sample_size(100)
+        .measurement_time(Duration::from_secs(30))
+        .warm_up_time(Duration::from_secs(5));
+    let ant  = BinAnt::rng_and_pp(PP::IterationExpRand, FakeRng);
     let problem = aco_bbp::problem::ProblemLoader::new()
         .pick_uniform(true)
         .problem_size(1000)
@@ -55,7 +81,7 @@ fn criterion_benchmark(c: &mut Criterion) {
      group.bench_function("bin ant", |b| b.iter(|| bench_bin_ant(black_box(ant.clone()), &ss, &mut start_pheromone)));
 
 
-    let ant = BinAnt2D::new(PerceivedPherStrat::IterOnce);
+    let ant = BinAnt::rng_and_pp(PP::IterationExpRand, FakeRng);
     let mut start_pheromone = (0..5).map(|_| FMatrix::repeat(size_count, size_count, 1.0)).collect_vec();
     group.bench_function("bin ant 2d", |b| b.iter(|| bench_bin_ant2d(black_box(ant.clone()), &ss, &mut start_pheromone)));
     group.finish()

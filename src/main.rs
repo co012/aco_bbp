@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::collections::HashMap;
 use ecrs::aco;
 use ecrs::aco::colony::Colony;
@@ -10,7 +11,7 @@ use rand::{Rng, thread_rng};
 use rayon::prelude::*;
 
 use crate::colony::{BinColony, BinSharedState};
-use crate::colony::ant::{BinAnt, BinAnt2D, DnaAnt, PerceivedPherStrat};
+use crate::colony::ant::{BinAnt, PP};
 use crate::fitness::BinFitness;
 use crate::probe::CsvProbe;
 use crate::problem::{Problem, ProblemLoader, ProblemSet};
@@ -81,10 +82,10 @@ fn run(problem: &Problem, size_count: usize, index_to_size: &Vec<usize>, i2count
                         run_dna(ev_rate, ants,&problem, ss.clone(), size_count, &fitness, probe.clone_exchange(make_label("dna", &ss, 0,ants,ev_rate)));
                         run_dna_rand(ev_rate, ants,&problem, ss.clone(), size_count, &fitness, probe.clone_exchange(make_label("dna_rand", &ss, 0,ants,ev_rate)));
                         run_acs_pu(ev_rate, ants,problem, ss.clone(), size_count, &fitness, probe.clone_exchange(make_label("acs", &ss, 0,ants,ev_rate)));
-                        run_acs_2d(ev_rate, ants,problem, size_count, fitness.clone(), probe.clone_exchange(make_label("acs2d_ei", &ss, 0,ants,ev_rate)), ss.clone(), PerceivedPherStrat::EveryItem);
-                        run_as_2d(ev_rate, ants,&problem, size_count, fitness.clone(), probe.clone_exchange(make_label("as2d_io", &ss, 0,ants,ev_rate)), ss.clone(), PerceivedPherStrat::IterOnce);
-                        run_as_2d(ev_rate, ants,&problem, size_count, fitness.clone(), probe.clone_exchange(make_label("as2d_ei", &ss, 0,ants,ev_rate)), ss.clone(), PerceivedPherStrat::EveryItem);
-                        run_acs_2d(ev_rate, ants,problem, size_count, fitness.clone(), probe.clone_exchange(make_label("acs2d_io", &ss, 0,ants,ev_rate)), ss.clone(), PerceivedPherStrat::IterOnce);
+                        run_acs_2d(ev_rate, ants,problem, size_count, fitness.clone(), probe.clone_exchange(make_label("acs2d_ei", &ss, 0,ants,ev_rate)), ss.clone(), PP::ItemExpRand);
+                        run_as_2d(ev_rate, ants,&problem, size_count, fitness.clone(), probe.clone_exchange(make_label("as2d_io", &ss, 0,ants,ev_rate)), ss.clone(), PP::IterationExpRand);
+                        run_as_2d(ev_rate, ants,&problem, size_count, fitness.clone(), probe.clone_exchange(make_label("as2d_ei", &ss, 0,ants,ev_rate)), ss.clone(), PP::ItemExpRand);
+                        run_acs_2d(ev_rate, ants,problem, size_count, fitness.clone(), probe.clone_exchange(make_label("acs2d_io", &ss, 0,ants,ev_rate)), ss.clone(), PP::IterationExpRand);
                         run_dna_bias(ev_rate, ants,problem, ss.clone(), size_count, &fitness, probe.clone_exchange(make_label("dna_bias", &ss, 0,ants,ev_rate)));
                     }
                 }
@@ -101,7 +102,7 @@ fn run_best(problem: &Problem, size_count: usize, index_to_size: &Vec<usize>, i2
         let ev_rate = 0.2;
         for alpha in [1.0,2.0,3.0,4.0,5.0,7.0,8.0] {
             for beta in [1.5, 2.0, 2.5] {
-                let mut ss = BinSharedState {
+                let ss = BinSharedState {
                     alpha,
                     beta,
                     i2size: index_to_size.clone(),
@@ -110,7 +111,7 @@ fn run_best(problem: &Problem, size_count: usize, index_to_size: &Vec<usize>, i2
                     i2count: i2count.clone(),
                     heuristic: index_to_size.iter().map(|x| (*x as f64).powf(beta)).collect_vec(),
                 };
-                run_acs_2d(ev_rate, ants, problem, size_count, fitness.clone(), probe.clone_exchange(make_label("acs2d_io", &ss, p_num, ants, ev_rate)), ss.clone(), PerceivedPherStrat::IterOnce);
+                run_acs_2d(ev_rate, ants, problem, size_count, fitness.clone(), probe.clone_exchange(make_label("acs2d_io", &ss, p_num, ants, ev_rate)), ss.clone(), PP::IterationExpRand);
 
                 let ev_rate = 0.05;
                 run_acs_pu(ev_rate, ants, problem, ss.clone(), size_count, &fitness, probe.clone_exchange(make_label("acs", &ss, p_num, ants, ev_rate)));
@@ -122,8 +123,8 @@ fn make_label(l: &'static str, ss: &BinSharedState, p_num: usize, ants: usize, e
     format!("{},{},{},{},{},{}", p_num, l, ss.alpha, ss.beta, ants, ev_rate)
 }
 
-fn run_as_2d(ev_rate: f64, ants: usize, problem: &Problem, size_count: usize, fitness: BinFitness, probe: CsvProbe, ss: BinSharedState, pp: PerceivedPherStrat) {
-    let ants = (0..ants).map(|_| BinAnt2D::new(pp.clone())).collect_vec();
+fn run_as_2d(ev_rate: f64, ants: usize, problem: &Problem, size_count: usize, fitness: BinFitness, probe: CsvProbe, ss: BinSharedState, pp: PP) {
+    let ants = (0..ants).map(|_| BinAnt::with_pp(pp.clone())).collect_vec();
     let colony = BinColony::new(ss, ants);
     let start_pheromone = (0..PHER_LEVELS).map(|_| FMatrix::repeat(size_count, size_count, 1.0)).collect_vec();
     let pus = (0..PHER_LEVELS)
@@ -134,8 +135,8 @@ fn run_as_2d(ev_rate: f64, ants: usize, problem: &Problem, size_count: usize, fi
     run_aco(ev_rate, problem, &fitness, probe, colony, start_pheromone, pu);
 }
 
-fn run_acs_2d(ev_rate: f64, ants: usize, problem: &Problem, size_count: usize, fitness: BinFitness, probe: CsvProbe, ss: BinSharedState, pp: PerceivedPherStrat) {
-    let ants = (0..ants).map(|_| BinAnt2D::new(pp.clone())).collect_vec();
+fn run_acs_2d(ev_rate: f64, ants: usize, problem: &Problem, size_count: usize, fitness: BinFitness, probe: CsvProbe, ss: BinSharedState, pp: PP) {
+    let ants = (0..ants).map(|_| BinAnt::with_pp(pp.clone())).collect_vec();
     let colony = BinColony::new(ss, ants);
     let start_pheromone = (0..PHER_LEVELS).map(|_| FMatrix::repeat(size_count, size_count, 1.0)).collect_vec();
     let pus = (0..PHER_LEVELS)
@@ -157,7 +158,7 @@ fn run_dna(ev_rate: f64, ants: usize, problem: &Problem, ss: BinSharedState, siz
     let dna = (0..PHER_LEVELS).map(|i| 0.5f64.powi(i as i32)).rev().collect_vec();
 
     let start_pheromone = (0..PHER_LEVELS).map(|_| FMatrix::repeat(size_count, size_count, 1.0)).collect_vec();
-    let ants = (0..ants).map(|_| DnaAnt::new(dna.clone())).collect_vec();
+    let ants = (0..ants).map(|_| BinAnt::with_pp(PP::Dna(dna.clone()))).collect_vec();
     let pus = (0..PHER_LEVELS)
         .map(|_| Box::new(AntSystemPU) as Box<dyn PheromoneUpdate<FMatrix>>)
         .collect_vec();
@@ -171,7 +172,7 @@ fn run_dna_bias(ev_rate: f64, ants: usize, problem: &Problem, ss: BinSharedState
     let dna = (0..PHER_LEVELS).map(|i| 0.5f64.powi(i as i32) - 0.125).rev().collect_vec();
 
     let start_pheromone = (0..PHER_LEVELS).map(|_| FMatrix::repeat(size_count, size_count, 1.0)).collect_vec();
-    let ants = (0..ants).map(|_| DnaAnt::new(dna.clone())).collect_vec();
+    let ants = (0..ants).map(|_| BinAnt::with_pp(PP::Dna(dna.clone()))).collect_vec();
     let pus = (0..PHER_LEVELS)
         .map(|_| Box::new(AntSystemPU) as Box<dyn PheromoneUpdate<FMatrix>>)
         .collect_vec();
@@ -186,7 +187,7 @@ fn run_dna_rand(ev_rate: f64, ants: usize, problem: &Problem, ss: BinSharedState
     let dnas = (0..ants).map(|_| (0..PHER_LEVELS).map(|_| r.gen::<f64>()).collect_vec());
 
     let start_pheromone = (0..PHER_LEVELS).map(|_| FMatrix::repeat(size_count, size_count, 1.0)).collect_vec();
-    let ants = dnas.map(|dna| DnaAnt::new(dna)).collect_vec();
+    let ants = dnas.map(|dna| BinAnt::with_pp(PP::Dna(dna))).collect_vec();
     let pus = (0..PHER_LEVELS)
         .map(|_| Box::new(AntSystemPU) as Box<dyn PheromoneUpdate<FMatrix>>)
         .collect_vec();
