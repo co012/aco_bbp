@@ -52,7 +52,6 @@ impl PerceivedPherStrat {
 #[derive(Clone)]
 pub struct BinAnt2D {
     pub i2count: Vec<usize>,
-    pub path: Vec<usize>,
     pub rng: StdRng,
     pub inside_bin: Vec<usize>,
     pub pp: PerceivedPherStrat,
@@ -104,7 +103,6 @@ impl BinAnt2D {
     /// Clears iteration specific data like visited vertices or path.
     fn clear(&mut self, ss: &BinSharedState) {
         self.i2count = ss.i2count.clone();
-        self.path.clear();
         self.inside_bin.clear();
     }
     /// Selects an vertex to start from
@@ -112,23 +110,24 @@ impl BinAnt2D {
         self.rng.gen_range(0..self.i2count.len())
     }
 
-    fn go_to(&mut self, v: usize) {
+    fn go_to(&mut self, v: usize, path: &mut Vec<usize>) {
         self.i2count[v] -= 1;
-        self.path.push(v);
+        path.push(v);
         self.inside_bin.push(v);
     }
 
     pub fn new(pp: PerceivedPherStrat) -> Self {
-        Self { i2count: vec![], path: vec![], rng: StdRng::from_entropy(), inside_bin: vec![], pp }
+        Self { i2count: vec![], rng: StdRng::from_entropy(), inside_bin: vec![], pp }
     }
 }
 
 impl MyAnt<Vec<FMatrix>> for BinAnt2D {
     #[time_graph::instrument]
     fn build_solution(&mut self, pheromone: &Vec<FMatrix>, ss: &BinSharedState) -> Vec<usize> {
+        let mut path: Vec<usize> = Vec::with_capacity(ss.solution_size);
         self.clear(ss);
         let start = self.chose_staring_place();
-        self.go_to(start);
+        self.go_to(start,&mut path);
 
         for _ in 1..ss.solution_size {
             let tmp = self.find_destinations(ss);
@@ -148,10 +147,10 @@ impl MyAnt<Vec<FMatrix>> for BinAnt2D {
             let next = self.choose_next(fitting_items, goodness).expect("Ant is stuck");
 
 
-            self.go_to(next);
+            self.go_to(next,&mut path);
         }
 
-        self.path.clone()
+        path
     }
 }
 

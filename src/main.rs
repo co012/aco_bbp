@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use ecrs::aco;
 use ecrs::aco::colony::Colony;
 use ecrs::aco::FMatrix;
@@ -33,10 +34,7 @@ fn main() {
             .load_problem(p%10);
 
         let (size_count, size_to_index, index_to_size) = util::process_items(&problem.items);
-        let mut i2count = vec![0; size_count];
-        for i in problem.items.clone() {
-            i2count[size_to_index[&i]] += 1;
-        }
+        let i2count = create_i2count(&problem, size_count, size_to_index);
         let fitness = BinFitness {
             stress_factor: 2.0,
             i2size: index_to_size.clone(),
@@ -53,12 +51,20 @@ fn main() {
     // println!("{}", graph.as_table());
 }
 
+fn create_i2count(problem: &Problem, size_count: usize, size_to_index: HashMap<usize, usize>) -> Vec<usize> {
+    let mut i2count = vec![0; size_count];
+    for i in problem.items.clone() {
+        i2count[size_to_index[&i]] += 1;
+    }
+    i2count
+}
+
 
 fn run(problem: &Problem, size_count: usize, index_to_size: &Vec<usize>, i2count: &Vec<usize>, fitness: &BinFitness, probe: &mut CsvProbe) {
     (0..10).into_par_iter().for_each(|i| {
         let mut probe = probe.clone();
         probe.file_post = format!("{}", i);
-        for alpha in [8.0] {
+        for alpha in [1.0,2.0,3.0,4.0,5.0,7.0,8.0] {
             for beta in [1.5, 2.0, 2.5] {
                 for ev_rate in [0.01, 0.05, 0.1, 0.2] {
                     for ants in [10, 20, 50, 100, 200, 250] {
@@ -92,34 +98,23 @@ fn run_best(problem: &Problem, size_count: usize, index_to_size: &Vec<usize>, i2
         let mut probe = probe.clone();
         probe.file_post = format!("{}", i);
         let ants = 250;
-        let alpha = 3.0;
-        let beta =2.5;
         let ev_rate = 0.2;
-        let ss = BinSharedState {
-            alpha,
-            beta,
-            i2size: index_to_size.clone(),
-            solution_size: problem.items.len(),
-            bin_cap: problem.bin_cap,
-            i2count: i2count.clone(),
-            heuristic: index_to_size.iter().map(|x| (*x as f64).powf(beta)).collect_vec(),
-        };
-        run_acs_2d(ev_rate, ants,problem, size_count, fitness.clone(), probe.clone_exchange(make_label("acs2d_io", &ss, p_num,ants,ev_rate)), ss.clone(), PerceivedPherStrat::IterOnce);
+        for alpha in [1.0,2.0,3.0,4.0,5.0,7.0,8.0] {
+            for beta in [1.5, 2.0, 2.5] {
+                let mut ss = BinSharedState {
+                    alpha,
+                    beta,
+                    i2size: index_to_size.clone(),
+                    solution_size: problem.items.len(),
+                    bin_cap: problem.bin_cap,
+                    i2count: i2count.clone(),
+                    heuristic: index_to_size.iter().map(|x| (*x as f64).powf(beta)).collect_vec(),
+                };
+                run_acs_2d(ev_rate, ants, problem, size_count, fitness.clone(), probe.clone_exchange(make_label("acs2d_io", &ss, p_num, ants, ev_rate)), ss.clone(), PerceivedPherStrat::IterOnce);
 
-        let beta =1.5;
-        let ev_rate = 0.05;
-        let ss = BinSharedState {
-            alpha,
-            beta,
-            i2size: index_to_size.clone(),
-            solution_size: problem.items.len(),
-            bin_cap: problem.bin_cap,
-            i2count: i2count.clone(),
-            heuristic: index_to_size.iter().map(|x| (*x as f64).powf(beta)).collect_vec(),
-        };
-
-        run_acs_pu(ev_rate, ants,problem, ss.clone(), size_count, &fitness, probe.clone_exchange(make_label("acs", &ss, p_num,ants,ev_rate)));
-
+                let ev_rate = 0.05;
+                run_acs_pu(ev_rate, ants, problem, ss.clone(), size_count, &fitness, probe.clone_exchange(make_label("acs", &ss, p_num, ants, ev_rate)));
+            }}
     })
 }
 
@@ -221,6 +216,15 @@ fn run_aco<P: Pheromone, C: Colony<P>, PU: PheromoneUpdate<P>>(ev_rate: f64, pro
         .build();
 
     algo.run()
+}
+
+impl BinSharedState {
+    fn update(&mut self, alpha: f64, beta: f64) {
+        self.alpha=alpha;
+        self.beta=beta;
+        self.heuristic.clear();
+        self.heuristic.extend(self.i2size.iter().map(|x| (*x as f64).powf(beta)));
+    }
 }
 
 

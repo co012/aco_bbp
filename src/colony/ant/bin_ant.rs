@@ -9,7 +9,6 @@ use crate::colony::BinSharedState;
 #[derive(Clone)]
 pub struct BinAnt {
     pub i2count: Vec<usize>,
-    pub path: Vec<usize>,
     pub rng: StdRng,
     pub inside_bin: Vec<usize>,
 }
@@ -74,7 +73,6 @@ impl BinAnt {
     #[time_graph::instrument]
     fn clear(&mut self, ss: &BinSharedState) {
         self.i2count.clone_from(&ss.i2count);
-        self.path.clear();
         self.inside_bin.clear();
     }
 
@@ -82,14 +80,14 @@ impl BinAnt {
         self.rng.gen_range(0..self.i2count.len())
     }
     #[time_graph::instrument]
-    fn go_to(&mut self, v: usize) {
+    fn go_to(&mut self, v: usize, path: &mut Vec<usize>) {
         self.i2count[v] -= 1;
-        self.path.push(v);
+        path.push(v);
         self.inside_bin.push(v);
     }
 
     pub fn new() -> Self {
-        Self { i2count: vec![], path: vec![], rng: StdRng::from_entropy(), inside_bin: vec![] }
+        Self { i2count: vec![], rng: StdRng::from_entropy(), inside_bin: vec![] }
     }
 
     fn find_fitting_items(&mut self, ss: &BinSharedState) -> Vec<usize> {
@@ -105,9 +103,11 @@ impl BinAnt {
 impl MyAnt<FMatrix> for BinAnt {
     #[time_graph::instrument]
     fn build_solution(&mut self, pheromone: &FMatrix, ss: &BinSharedState) -> Vec<usize> {
+
+        let mut path = Vec::<usize>::with_capacity(ss.solution_size);
         self.clear(ss);
         let start = self.chose_staring_place();
-        self.go_to(start);
+        self.go_to(start,&mut path);
 
         for _ in 1..ss.solution_size {
             let fitting_items = self.find_fitting_items(ss);
@@ -122,9 +122,9 @@ impl MyAnt<FMatrix> for BinAnt {
 
             let next = self.choose_next(fitting_items, goodness).expect("Ant is stuck");
 
-            self.go_to(next);
+            self.go_to(next, &mut path);
         }
 
-        self.path.clone()
+       path
     }
 }
