@@ -1,3 +1,4 @@
+use std::time::Duration;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use ecrs::aco::FMatrix;
 use itertools::Itertools;
@@ -13,6 +14,11 @@ fn bench_bin_ant(mut ant: BinAnt, ss: &BinSharedState, pher: &mut FMatrix) {
 
 
 fn criterion_benchmark(c: &mut Criterion) {
+
+    let mut group = c.benchmark_group("sample-size-example");
+    // Configure Criterion.rs to detect smaller differences and increase sample size to improve
+    // precision and counteract the resulting noise.
+    group.significance_level(0.1).sample_size(1000).measurement_time(Duration::from_secs(30));
     let ant  = BinAnt::new();
     let problem = aco_bbp::problem::ProblemLoader::new()
         .pick_uniform(true)
@@ -39,8 +45,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut start_pheromone = FMatrix::repeat(size_count, size_count, 1.0);
 
 
-     c.bench_function("bin ant", |b| b.iter(|| bench_bin_ant(black_box(ant.clone()), &ss, &mut start_pheromone)));
+     group.bench_function("bin ant", |b| b.iter(|| bench_bin_ant(black_box(ant.clone()), &ss, &mut start_pheromone)));
     // c.bench_function("pow int", |b| b.iter(|| pow_unsafe(black_box(10000))));
+    group.finish()
 }
 
 criterion_group!(benches, criterion_benchmark);
