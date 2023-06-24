@@ -1,16 +1,116 @@
 use ecrs::aco::FMatrix;
+use ecrs::aco::pheromone::Pheromone;
 use itertools::Itertools;
 use rand::{Rng, SeedableRng};
 use rand::prelude::StdRng;
+use crate::colony::ant::bin_ant::PP::Dna;
 
 use crate::colony::ant::MyAnt;
 use crate::colony::BinSharedState;
+
+trait PPApply<P: Pheromone> {
+    fn apply(&self, inside_bin: &[usize], pheromone: &P, fitting_items: &[usize], rand: &mut impl Rng) -> Vec<f64>;
+}
+#[derive(Clone)]
+pub enum PP {
+    Dna(Vec<f64>),
+    IterationExpRand,
+    ItemExpRand,
+}
+
+impl PPApply<FMatrix> for PP {
+    fn apply(&self, inside_bin: &[usize], pheromone: &FMatrix, fitting_items: &[usize], _ : &mut impl Rng) -> Vec<f64>{
+        if inside_bin.is_empty() {
+            return vec![1.0; fitting_items.len()];
+        }
+        let mut pher = Vec::<f64>::with_capacity(fitting_items.len());
+        for i in fitting_items.iter().cloned() {
+            let mut p: f64 = inside_bin.iter().cloned().map(|j| pheromone[(j, i)]).sum();
+            p /= inside_bin.len() as f64;
+            pher.push(p)
+        }
+        pher
+    }
+}
+
+impl PP {
+
+    fn apply_dna(inside_bin: &[usize], pheromone: &[FMatrix], fitting_items: &[usize], dna: &[f64]) -> Vec<f64> {
+        if inside_bin.is_empty() {
+            return vec![1.0; fitting_items.len()];
+        }
+        let mut pher = vec![];
+        for u in fitting_items.iter().cloned() {
+            let mut p = 0f64;
+            for (pheromone_level, weight) in pheromone.iter().zip(dna.iter().cloned()) {
+                for v in inside_bin.iter().cloned() {
+                    p += pheromone_level[(u, v)] * weight
+                }
+            }
+            p = p.max(0.0);
+            pher.push(p / inside_bin.len() as f64)
+        }
+        pher
+    }
+
+    fn apply_iter_exp_rand(inside_bin: &[usize], pheromone: &[FMatrix], fitting_items: &[usize], rand: &mut impl Rng) -> Vec<f64> {
+        if inside_bin.is_empty() {
+            return vec![1.0; fitting_items.len()];
+        }
+        let mut pher = vec![];
+        let pheromone_level = exp_less(rand, pheromone.len());
+        for i in fitting_items.iter().cloned() {
+            let mut p: f64 = inside_bin.iter().cloned().map(|j| pheromone[pheromone_level][(j, i)]).sum();
+            p /= inside_bin.len() as f64;
+            pher.push(p)
+        }
+        pher
+    }
+
+    fn apply_item_exp_rand(inside_bin: &[usize], pheromone: &[FMatrix], fitting_items: &[usize], rand: &mut impl Rng) -> Vec<f64> {
+        if inside_bin.is_empty() {
+            return vec![1.0; fitting_items.len()];
+        }
+        let mut pher = vec![];
+        for i in fitting_items.iter().cloned() {
+            let pheromone_level = exp_less(rand, pheromone.len());
+            let mut p: f64 = inside_bin.iter().cloned().map(|j| pheromone[pheromone_level][(j, i)]).sum();
+            p /= inside_bin.len() as f64;
+            pher.push(p)
+        }
+        pher
+    }
+
+}
+
+
+impl PPApply<Vec<FMatrix>> for PP {
+    fn apply(&self, inside_bin: &[usize], pheromone: &Vec<FMatrix>, fitting_items: &[usize], rand: &mut impl Rng) -> Vec<f64> {
+
+        match self {
+            Dna(dna) => PP::apply_dna(inside_bin, pheromone, fitting_items, dna),
+            PP::IterationExpRand=> PP::apply_iter_exp_rand(inside_bin, pheromone, fitting_items, rand),
+            PP::ItemExpRand => PP::apply_item_exp_rand(inside_bin, pheromone, fitting_items, rand)
+
+        }
+    }
+}
+
+fn exp_less(rng: &mut impl Rng, end: usize) -> usize {
+    for i in 1..end {
+        if rng.gen::<bool>() {
+            return end - i;
+        }
+    }
+    0
+}
 
 #[derive(Clone)]
 pub struct BinAnt {
     pub i2count: Vec<usize>,
     pub rng: StdRng,
     pub inside_bin: Vec<usize>,
+    pub pp: PP
 }
 
 unsafe impl Send for BinAnt {}
@@ -42,19 +142,7 @@ impl BinAnt {
 
         fit_items
     }
-    #[time_graph::instrument]
-    fn perceived_pheromone(&self, pheromone: &FMatrix, possible_destinations: &[usize]) -> Vec<f64> {
-        if self.inside_bin.is_empty() {
-            return vec![1.0; possible_destinations.len()];
-        }
-        let mut pher = Vec::<f64>::with_capacity(possible_destinations.len());
-        for i in possible_destinations.iter().cloned() {
-            let mut p: f64 = self.inside_bin.iter().cloned().map(|j| pheromone[(j, i)]).sum();
-            p /= self.inside_bin.len() as f64;
-            pher.push(p)
-        }
-        pher
-    }
+
     #[time_graph::instrument]
     fn choose_next(&mut self, fitting_items: Vec<usize>, goodness: Vec<f64>) -> Option<usize> {
         let sum = goodness.iter().sum();
@@ -87,7 +175,7 @@ impl BinAnt {
     }
 
     pub fn new() -> Self {
-        Self { i2count: vec![], rng: StdRng::from_entropy(), inside_bin: vec![] }
+        Self { i2count: vec![], rng: StdRng::from_entropy(), inside_bin: vec![], pp: PP::ItemExpRand }
     }
 
     fn find_fitting_items(&mut self, ss: &BinSharedState) -> Vec<usize> {
@@ -112,7 +200,7 @@ impl MyAnt<FMatrix> for BinAnt {
         for _ in 1..ss.solution_size {
             let fitting_items = self.find_fitting_items(ss);
 
-            let pher = self.perceived_pheromone(pheromone, &fitting_items);
+            let pher = self.pp.apply(&self.inside_bin, pheromone, &fitting_items, &mut self.rng);
 
             let goodness = fitting_items.iter()
                 .map(|x| ss.heuristic[*x])
